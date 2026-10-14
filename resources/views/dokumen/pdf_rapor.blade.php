@@ -1,236 +1,152 @@
-@foreach ($siswaList as $rk)
-    @php
-        $siswa = $rk->siswa;
-        $user = $siswa->user ?? null;
-        $riwayatKelas = $rk;
-        $kelasAjar = $kelasAjar;
-        $tahunAjaran = $kelasAjar->tahunAjaran;
-        $waliKelas = $kelasAjar->waliKelas;
-        $sekolah = $sekolah ?? null;
-        $intrakurikulerList = $kelasAjar->intrakurikuler ?? [];
-        $ekskulList = $siswa->siswaEkstrakurikuler
-            ->where('ekstrakurikuler.tahun_ajaran_id', $tahunAjaran->tahun_ajaran_id)
-            ->values();
-
-        // Koleksi formatif & sumatif siswa
-        $asesmenFormatifList = $siswa->asesmenFormatif ?? collect();
-        $skorSumatifList = $siswa->skorAsesmenSumatif ?? collect();
-    @endphp
-
-    <div class="page">
-        {{-- Judul --}}
-        <div style="text-align:center; font-weight:bold; font-size:16pt; margin-bottom:10px;">
-            LAPORAN HASIL BELAJAR<br>(RAPOR)
-        </div>
-        <table style="width:100%; font-size:12pt; margin-bottom:5mm;">
-            <tr>
-                <td style="width:25%;">Nama Peserta Didik</td>
-                <td style="width:2%;">:</td>
-                <td style="width:36%;">{{ $user->name ?? $siswa->nama }}</td>
-                <td style="width:20%;">Kelas</td>
-                <td style="width:2%;">:</td>
-                <td>{{ $kelasAjar->kelas->nama_kelas }}</td>
-            </tr>
-            <tr>
-                <td>NISN</td>
-                <td>:</td>
-                <td>{{ $siswa->nisn }}</td>
-                <td>Fase</td>
-                <td>:</td>
-                <td>{{ $kelasAjar->kelas->nama_kelas[0] === 'X' || $kelasAjar->kelas->nama_kelas[0] === '10' ? 'E' : 'F' }}
-                </td>
-            </tr>
-            <tr>
-                <td>Sekolah</td>
-                <td>:</td>
-                <td>{{ $sekolah->nama_sekolah ?? 'SMK IT BAITUL AZIZ' }}</td>
-                <td>Semester</td>
-                <td>:</td>
-                <td>{{ $tahunAjaran->semester }}</td>
-            </tr>
-            <tr>
-                <td>Alamat</td>
-                <td>:</td>
-                <td>{{ $sekolah->alamat ?? '-' }}</td>
-                <td>Tahun Pelajaran</td>
-                <td>:</td>
-                <td>{{ $tahunAjaran->tahun }}</td>
-            </tr>
-        </table>
-
-        {{-- Tabel Intrakurikuler --}}
-        <table border="1" cellpadding="4" cellspacing="0" class="table-intrakurikuler"
-            style="width:100%; font-size:11pt; border-collapse:collapse; margin-bottom: 8mm;">
-            <thead>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <title>Laporan Hasil Belajar</title>
+    <style>
+        @page { size: A4 portrait; margin: 15mm; }
+        body { margin: 0; font-family: "Times New Roman", Times, serif; font-size: 11pt; line-height: 1.2; color: #000; }
+        .watermark { position: fixed; top: 65mm; left: 25mm; width: 130mm; opacity: 0.06; z-index: -1000; }
+        .rapor-siswa + .rapor-siswa { page-break-before: always; }
+        h1 { text-align: center; font-size: 14pt; margin: 0 0 8mm; line-height: 1.4; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .identitas { margin-bottom: 5mm; }
+        .identitas td { vertical-align: top; padding: 1pt 2pt; overflow-wrap: break-word; }
+        .nilai { margin-bottom: 5mm; }
+        .nilai thead { display: table-header-group; }
+        .nilai th, .nilai td { border: 0.7pt solid #000; padding: 4pt; overflow-wrap: break-word; }
+        .nilai th { text-align: center; }
+        .nilai tr { page-break-inside: avoid; }
+        .nilai td { vertical-align: middle; }
+        .nomor, .nilai-akhir { text-align: center; }
+        .capaian { margin: 0; padding: 2pt 0; }
+        .capaian + .capaian { border-top: 0.5pt solid #000; margin-top: 4pt; padding-top: 4pt; }
+        .penutup { page-break-inside: avoid; }
+        .kokurikuler { margin-bottom: 5mm; }
+        .kokurikuler th, .kokurikuler td, .ketidakhadiran th, .ketidakhadiran td, .keputusan th, .keputusan td { border: 0.7pt solid #000; padding: 4pt; }
+        .kokurikuler td { text-align: center; height: 10mm; }
+        .rekap > tbody > tr > td { vertical-align: top; padding: 0; }
+        .ketidakhadiran th, .keputusan th { text-align: center; }
+        .jumlah { text-align: center; }
+        .keputusan-placeholder { height: 19mm; text-align: center; }
+        .tanda-tangan { margin-top: 7mm; page-break-inside: avoid; }
+        .tanda-tangan td { text-align: center; vertical-align: top; overflow-wrap: break-word; }
+        .ruang-ttd { height: 22mm; }
+        .kepala-sekolah { margin-top: 5mm; text-align: center; }
+        .nama-kepala { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <img class="watermark" src="{{ public_path('images/rapor-logo.png') }}" alt="">
+    @foreach ($siswaList as $rk)
+        @php
+            $siswa = $rk->siswa;
+            $tahunAjaran = $kelasAjar->tahunAjaran;
+            $namaKelas = trim($kelasAjar->kelas?->nama_kelas ?? '');
+            $fase = '-';
+            if (preg_match('/^(XII|XI|X|12|11|10)(?=$|[\s.\-\/(])/i', $namaKelas, $tingkat)) {
+                $fase = in_array(strtoupper($tingkat[1]), ['X', '10'], true) ? 'E' : 'F';
+            }
+            $text = static fn ($value) => filled($value) ? $value : '-';
+            $kepala = $sekolah?->staff;
+            $namaKepala = $text($kepala?->user?->name ?: $kepala?->nama);
+            $genap = strtolower(trim($tahunAjaran?->semester ?? '')) === 'genap';
+        @endphp
+        <section class="rapor-siswa">
+            <h1>LAPORAN HASIL BELAJAR<br>(RAPOR)</h1>
+            <table class="identitas">
                 <tr>
-                    <th style="width:3%;">No</th>
-                    <th style="width:30%;">Muatan Pelajaran</th>
-                    <th style="width:8%;">Nilai Akhir</th>
-                    <th>Capaian Kompetensi</th>
+                    <td style="width: 24%">Nama Peserta Didik</td><td style="width: 2%">:</td><td style="width: 35%">{{ $text($siswa?->user?->name ?: $siswa?->nama) }}</td>
+                    <td style="width: 18%">Kelas</td><td style="width: 2%">:</td><td style="width: 19%">{{ $text($namaKelas) }}</td>
                 </tr>
-            </thead>
-            <tbody>
-                @php $no=1; @endphp
-                @forelse ($intrakurikulerList as $mapel)
-                    @php
-                        // Skor sumatif siswa pada mapel & riwayat kelas ini
-                        $skor = $skorSumatifList
-                            ->where('riwayat_kelas_id', $riwayatKelas->riwayat_kelas_id)
-                            ->where('asesmenSumatif.intrakurikuler_id', $mapel->intrakurikuler_id)
-                            ->sortByDesc('skor_asesmen_siswa_id')
-                            ->first();
-                        $nilaiAkhir = $skor->nilai ?? '-';
+                <tr>
+                    <td>NISN</td><td>:</td><td>{{ $text($siswa?->nisn) }}</td>
+                    <td>Fase</td><td>:</td><td class="fase">{{ $fase }}</td>
+                </tr>
+                <tr>
+                    <td>Sekolah</td><td>:</td><td>{{ $text($sekolah?->nama_sekolah) }}</td>
+                    <td>Semester</td><td>:</td><td>{{ $text($tahunAjaran?->semester) }}</td>
+                </tr>
+                <tr>
+                    <td>Alamat</td><td>:</td><td>{{ $text($sekolah?->alamat) }}</td>
+                    <td>Tahun Pelajaran</td><td>:</td><td>{{ $text($tahunAjaran?->tahun) }}</td>
+                </tr>
+            </table>
 
-                        // Formatif siswa pada mapel & riwayat kelas ini
-                        $formatif = $asesmenFormatifList
-                            ->where('riwayat_kelas_id', $riwayatKelas->riwayat_kelas_id)
-                            ->where('intrakurikuler_id', $mapel->intrakurikuler_id)
-                            ->first();
-                        $capaianTertinggi = $formatif->deskripsi_catatan_tertinggi ?? '-';
-                        $capaianTerendah = $formatif->deskripsi_catatan_terendah ?? '-';
-                        $rowspan = $capaianTerendah && $capaianTerendah !== '-' ? 2 : 1;
-                    @endphp
+            <table class="nilai">
+                <thead>
                     <tr>
-                        <td style="text-align:center; width: 3%;" rowspan="{{ $rowspan }}">{{ $no++ }}</td>
-                        <td rowspan="{{ $rowspan }}">{{ $mapel->nama_pelajaran }}</td>
-                        <td style="text-align:center;" rowspan="{{ $rowspan }}">{{ $nilaiAkhir }}</td>
-                        <td>{{ $capaianTertinggi }}</td>
+                        <th style="width: 5%">No</th><th style="width: 27%">Muatan Pelajaran</th>
+                        <th style="width: 9%">Nilai<br>Akhir</th><th style="width: 59%">Capaian Kompetensi</th>
                     </tr>
-                    @if ($capaianTerendah && $capaianTerendah !== '-')
+                </thead>
+                <tbody>
+                    @forelse ($kelasAjar->intrakurikuler as $mapel)
+                        @php
+                            $formatif = $mapel->asesmenFormatif
+                                ->where('riwayat_kelas_id', $rk->riwayat_kelas_id)
+                                ->where('intrakurikuler_id', $mapel->intrakurikuler_id)
+                                ->first();
+                            $nilaiAkhir = $nilaiAkhirByRiwayat[$rk->riwayat_kelas_id][$mapel->intrakurikuler_id] ?? null;
+                        @endphp
                         <tr>
-                            <td>{{ $capaianTerendah }}</td>
+                            <td class="nomor">{{ $loop->iteration }}</td>
+                            <td>{{ $text($mapel->nama_pelajaran) }}</td>
+                            <td class="nilai-akhir">{{ $nilaiAkhir ?? '-' }}</td>
+                            <td>
+                                <p class="capaian">{{ $text($formatif?->deskripsi_catatan_tertinggi) }}</p>
+                                <p class="capaian">{{ $text($formatif?->deskripsi_catatan_terendah) }}</p>
+                            </td>
                         </tr>
-                    @endif
-                @empty
-                    <tr>
-                        <td colspan="4" style="text-align:center;">-</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+                    @empty
+                        <tr><td colspan="4" class="nomor">-</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
 
-        {{-- Tabel Ekstrakurikuler --}}
-        <table border="1" cellpadding="4" cellspacing="0" class="table-ekstrakurikuler"
-            style="width:100%; font-size:11pt; border-collapse:collapse; margin-bottom: 8mm;">
-            <thead>
-                <tr>
-                    <th style="width:5%;">No</th>
-                    <th style="width:40%;">Ekstrakurikuler</th>
-                    <th>Keterangan</th>
-                </tr>
-            </thead>
-            <tbody>
-                @php $noEks=1; @endphp
-                @forelse ($ekskulList as $ekskul)
-                    @php
-                        $penilaian = $ekskul->penilaians->first();
-                        $deskripsi = $penilaian->deskripsi ?? '-';
-                    @endphp
+            <div class="penutup">
+                <table class="kokurikuler">
+                    <tr><th>Kokurikuler</th></tr>
+                    <tr><td>-</td></tr>
+                </table>
+                <table class="rekap">
                     <tr>
-                        <td style="text-align:center;">{{ $noEks++ }}</td>
-                        <td>{{ $ekskul->ekstrakurikuler->nama_pelajaran ?? '-' }}</td>
-                        <td>{{ $deskripsi }}</td>
+                        <td style="width: 45%">
+                            <table class="ketidakhadiran">
+                                <tr><th colspan="2">Ketidakhadiran</th></tr>
+                                <tr><td style="width: 65%">Sakit</td><td class="jumlah">{{ $rk->rekap_kehadiran['sakit'] ?? '-' }} hari</td></tr>
+                                <tr><td>Izin</td><td class="jumlah">{{ $rk->rekap_kehadiran['izin'] ?? '-' }} hari</td></tr>
+                                <tr><td>Tanpa Keterangan</td><td class="jumlah">{{ $rk->rekap_kehadiran['alpha'] ?? '-' }} hari</td></tr>
+                            </table>
+                        </td>
+                        <td style="width: 10%"></td>
+                        <td style="width: 45%">
+                            @if ($genap)
+                                <table class="keputusan">
+                                    <tr><th>Keputusan</th></tr>
+                                    <tr><td class="keputusan-placeholder">-</td></tr>
+                                </table>
+                            @endif
+                        </td>
                     </tr>
-                @empty
+                </table>
+
+                <table class="tanda-tangan">
                     <tr>
-                        <td colspan="3" style="text-align:center;">-</td>
+                        <td style="width: 40%"><br>Orang Tua,</td>
+                        <td style="width: 20%"></td>
+                        <td style="width: 40%">Bandung, {{ now()->translatedFormat('d F Y') }}<br>Wali Kelas,</td>
                     </tr>
-                @endforelse
-            </tbody>
-        </table>
-
-        {{-- Tabel Ketidakhadiran --}}
-        <table border="1" cellpadding="4" cellspacing="0" class="table-ketidakhadiran"
-            style="width:45%; font-size:11pt; border-collapse:collapse; margin-left: 8mm; margin-bottom:18px;">
-            <thead>
-                <tr>
-                    <th colspan="2" style="text-align:center;">Ketidakhadiran</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Sakit</td>
-                    <td>{{ $rk->rekap_kehadiran['sakit'] }} hari</td>
-                </tr>
-                <tr>
-                    <td>Izin</td>
-                    <td>{{ $rk->rekap_kehadiran['izin'] }} hari</td>
-                </tr>
-                <tr>
-                    <td>Tanpa Keterangan</td>
-                    <td>{{ $rk->rekap_kehadiran['alpha'] }} hari</td>
-                </tr>
-            </tbody>
-        </table>
-
-        {{-- Tanda Tangan --}}
-        <div style="page-break-inside: avoid;">
-            <div style="text-align:right; margin:0 5mm;">
-                Bandung, {{ now()->translatedFormat('d F Y') }}
+                    <tr><td class="ruang-ttd"></td><td></td><td></td></tr>
+                    <tr><td>.................................................</td><td></td><td>{{ $text($kelasAjar->waliKelas?->name) }}</td></tr>
+                </table>
+                <div class="kepala-sekolah">
+                    Mengetahui,<br>Kepala Sekolah
+                    <div class="ruang-ttd"></div>
+                    <span class="nama-kepala">{{ $namaKepala }}</span>
+                </div>
             </div>
-
-            <!-- Dua tanda tangan (kiri & kanan) -->
-            <table style="width:100%; margin-top:2mm; border-collapse:collapse;">
-                <tr>
-                    <td style="width:30%; text-align:center; vertical-align:top;">
-                        Orang Tua,<br><br><br><br><br>
-                        .................................................
-                    </td>
-
-                    <!-- Spacer -->
-                    <td style="width:40%;"></td>
-
-                    <td style="width:30%; text-align:center; vertical-align:top;">
-                        Wali Kelas,<br><br><br><br><br>
-                        {{ $waliKelas->name ?? 'Wali Kelas' }}
-                    </td>
-                </tr>
-            </table>
-
-            <table style="width:100%; margin-top:8mm; border-collapse:collapse;">
-                <tr>
-                    <td style="width:25%;"></td>
-                    <td style="width:50%; text-align:center; vertical-align:top;">
-                        Mengetahui,<br>
-                        Kepala Sekolah<br><br><br><br><br>
-                        <span style="font-weight:bold;">
-                            {{ $sekolah->nama_kepala_sekolah ?? '' }}
-                        </span><br>
-                    </td>
-                    <td style="width:25%;"></td>
-                </tr>
-            </table>
-        </div>
-
-    </div>
-@endforeach
-
-<style>
-    .page {
-        page-break-after: always;
-    }
-
-    body {
-        font-family: "Times New Roman", Times, serif;
-        font-size: 12pt;
-        color: #000;
-    }
-
-    .table-intrakurikuler tr,
-    .table-intrakurikuler td,
-    .table-intrakurikuler th {
-        border: 1px solid black;
-    }
-
-    .table-ekstrakurikuler tr,
-    .table-ekstrakurikuler td,
-    .table-ekstrakurikuler th {
-        border: 1px solid black;
-    }
-
-    .table-ketidakhadiran tr,
-    .table-ketidakhadiran td,
-    .table-ketidakhadiran th {
-        border: 1px solid black;
-    }
-</style>
+        </section>
+    @endforeach
+</body>
+</html>

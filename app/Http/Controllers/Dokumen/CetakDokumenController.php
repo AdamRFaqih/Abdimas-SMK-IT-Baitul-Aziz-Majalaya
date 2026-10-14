@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Dokumen;
 use App\Http\Controllers\Controller;
 use App\Models\KelasAjar;
 use App\Models\Sekolah;
+use App\Support\RaporNilaiCalculator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 // use Spatie\LaravelPdf\Facades\Pdf;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -118,25 +120,21 @@ class CetakDokumenController extends Controller
             'siswa.*' => 'exists:riwayat_kelas,riwayat_kelas_id',
         ]);
 
-        $sekolah = Sekolah::with('kelurahan.kecamatan.kabupaten')->first();
+        $sekolah = Sekolah::with(['kelurahan.kecamatan.kabupaten', 'staff.user'])->first();
         $kelasAjar = KelasAjar::with([
             'kelas',
             'tahunAjaran',
             'waliKelas',
-            'intrakurikuler.pengampu',
-            'intrakurikuler.tujuanPembelajaran',
-            'intrakurikuler.asesmenFormatif.details.tujuanPembelajaran',
-            'intrakurikuler.asesmenSumatif.skorSiswa',
+            'intrakurikuler.asesmenFormatif',
             'riwayatKelas.siswa.user',
-            'riwayatKelas.siswa.siswaEkstrakurikuler.ekstrakurikuler.pembina',
-            'riwayatKelas.siswa.siswaEkstrakurikuler.penilaians',
             'riwayatKelas.kehadiranIntrakurikuler',
             'riwayatKelas.skorAsesmen.asesmenSumatif',
-            'riwayatKelas.siswa',
         ])->findOrFail($request->kelas_ajar_id);
 
         $siswaIds = $request->siswa ?? $kelasAjar->riwayatKelas->pluck('riwayat_kelas_id')->toArray();
         $siswaList = $kelasAjar->riwayatKelas->whereIn('riwayat_kelas_id', $siswaIds);
+
+        $nilaiAkhirByRiwayat = $this->nilaiRaporByRiwayat($kelasAjar, $siswaList);
 
         // Hitung kehadiran per siswa
         foreach ($siswaList as $rk) {
@@ -163,11 +161,60 @@ class CetakDokumenController extends Controller
             'kelasAjar' => $kelasAjar,
             'siswaList' => $siswaList,
             'sekolah' => $sekolah,
+            'nilaiAkhirByRiwayat' => $nilaiAkhirByRiwayat,
         ])->setPaper('a4', 'portrait')
             // ->download($filename);
             ->stream($filename);
 
         return $pdf;
+    }
+
+    /** Read loaded scores using the same component selection as the sumatif index. */
+    private function nilaiRaporByRiwayat(KelasAjar $kelasAjar, Collection $siswaList): array
+    {
+        $nilaiByRiwayat = [];
+
+        foreach ($siswaList as $rk) {
+            if ((string) $rk->kelas_ajar_id !== (string) $kelasAjar->kelas_ajar_id) {
+                continue;
+            }
+
+            foreach ($kelasAjar->intrakurikuler as $mapel) {
+                if ((string) $mapel->kelas_ajar_id !== (string) $kelasAjar->kelas_ajar_id) {
+                    continue;
+                }
+
+                $lingkup = [];
+                $test = null;
+                $nonTest = null;
+
+                foreach ($rk->skorAsesmen as $skor) {
+                    $asesmen = $skor->asesmenSumatif;
+                    if (!$asesmen
+                        || (string) $skor->riwayat_kelas_id !== (string) $rk->riwayat_kelas_id
+                        || (string) $asesmen->intrakurikuler_id !== (string) $mapel->intrakurikuler_id
+                        || (string) $asesmen->tahun_ajaran_id !== (string) $kelasAjar->tahun_ajaran_id) {
+                        continue;
+                    }
+
+                    // Read before the integer cast so a legacy empty value remains absent.
+                    $nilai = $skor->getAttributes()['nilai'] ?? null;
+                    if ($nilai === null || $nilai === '') {
+                        continue;
+                    }
+                    $nilai = (int) $nilai;
+
+                    if ($asesmen->asesmen_type === 'sumatif_lingkup') $lingkup[] = $nilai;
+                    if ($asesmen->asesmen_type === 'test') $test = $nilai;
+                    if ($asesmen->asesmen_type === 'non_test') $nonTest = $nilai;
+                }
+
+                $nilaiByRiwayat[$rk->riwayat_kelas_id][$mapel->intrakurikuler_id]
+                    = RaporNilaiCalculator::calculate($lingkup, $test, $nonTest);
+            }
+        }
+
+        return $nilaiByRiwayat;
     }
 
     // Generate PDF Buku Induk
