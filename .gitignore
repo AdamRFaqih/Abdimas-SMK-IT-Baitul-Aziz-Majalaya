@@ -18,3 +18,11 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Local working context and Codex session instructions
+/docs/context/
+/AGENTS.md
+/.codegraph/
+/docs/agent-work/
+/docs/raport-reference/
+/docs/assets/
