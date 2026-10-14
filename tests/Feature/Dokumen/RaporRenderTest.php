@@ -173,4 +173,35 @@ class RaporRenderTest extends TestCase
         $this->assertSame(1, DB::table('asesmen_sumatif')->where('asesmen_type', 'sas')->count());
         $this->assertSame(5, DB::table('skor_asesmen_siswa')->count());
     }
+
+    public function test_narratives_taller_than_a_page_stay_inside_printable_a4(): void
+    {
+        $data = RaporFixture::make(13, 1, false);
+        $formatif = $data['kelasAjar']->intrakurikuler[0]->asesmenFormatif[0];
+        $formatif->deskripsi_catatan_tertinggi = 'MULAI-SUPER '.str_repeat('Peserta menjelaskan konsep dan menerapkan hasil pengamatan secara runtut dengan contoh yang sesuai. ', 34).' SELESAI-SUPER';
+        $formatif->deskripsi_catatan_terendah = 'MULAI-SUPER-BIMBINGAN '.str_repeat('Peserta perlu pendampingan dalam menyusun kesimpulan dan mengevaluasi hasil pembelajaran. ', 22).' SELESAI-SUPER-BIMBINGAN';
+        $data = $this->data($data);
+        $html = view('dokumen.pdf_rapor', $data)->render();
+        $document = new \DOMDocument;
+        @$document->loadHTML($html);
+        $paragraphs = (new \DOMXPath($document))->query('//p[@class="capaian"]');
+        $text = preg_replace('/\s+/u', ' ', implode(' ', array_map(static fn ($paragraph) => $paragraph->textContent, iterator_to_array($paragraphs))));
+        $this->assertStringContainsString(preg_replace('/\s+/u', ' ', $formatif->deskripsi_catatan_tertinggi), $text);
+        $this->assertStringContainsString(preg_replace('/\s+/u', ' ', $formatif->deskripsi_catatan_terendah), $text);
+        $this->assertSame(1, substr_count($html, 'Muatan Uji 01'));
+
+        $pdf = Pdf::loadHTML($html)->setPaper('a4', 'portrait');
+        $pdf->output();
+        $baselines = [];
+        // Inspect real CPDF text placement, not extraction alone: text outside the
+        // page can still be extracted even though it is invisible when printed.
+        foreach ($pdf->getDomPDF()->getCanvas()->get_cpdf()->objects as $object) {
+            if ($object['t'] !== 'contents') continue;
+            preg_match_all('/\bBT\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+Td\b/', $object['c'], $positions, PREG_SET_ORDER);
+            foreach ($positions as $position) $baselines[] = (float) $position[2];
+        }
+        $this->assertGreaterThan(100, count($baselines), 'Real text commands must be inspected.');
+        $this->assertGreaterThanOrEqual(42.0, min($baselines), 'Text crosses the bottom 15mm print margin.');
+        $this->assertLessThanOrEqual(800.0, max($baselines), 'Text crosses the top 15mm print margin.');
+    }
 }

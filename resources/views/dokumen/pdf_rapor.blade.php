@@ -38,6 +38,27 @@
 </head>
 <body>
     <img class="watermark" src="{{ public_path('images/rapor-logo.png') }}" alt="">
+    @php
+        // DomPDF cannot split a table row across pages. Keep continuation rows
+        // small enough for the 11pt narrative column, even with wide glyphs.
+        $capaianRows = static function (array $narasi): array {
+            if (mb_strlen(implode(' ', $narasi)) <= 600) {
+                return [$narasi];
+            }
+            $rows = [];
+            foreach ($narasi as $paragraph) {
+                $remaining = trim(preg_replace('/\s+/u', ' ', $paragraph));
+                while (mb_strlen($remaining) > 600) {
+                    $boundary = mb_strrpos(mb_substr($remaining, 0, 600), ' ');
+                    $length = $boundary !== false && $boundary >= 300 ? $boundary : 600;
+                    $rows[] = [mb_substr($remaining, 0, $length)];
+                    $remaining = ltrim(mb_substr($remaining, $length));
+                }
+                if ($remaining !== '') $rows[] = [$remaining];
+            }
+            return $rows;
+        };
+    @endphp
     @foreach ($siswaList as $rk)
         @php
             $siswa = $rk->siswa;
@@ -88,16 +109,24 @@
                                 ->where('intrakurikuler_id', $mapel->intrakurikuler_id)
                                 ->first();
                             $nilaiAkhir = $nilaiAkhirByRiwayat[$rk->riwayat_kelas_id][$mapel->intrakurikuler_id] ?? null;
+                            $nomorMapel = $loop->iteration;
+                            $barisCapaian = $capaianRows([
+                                $text($formatif?->deskripsi_catatan_tertinggi),
+                                $text($formatif?->deskripsi_catatan_terendah),
+                            ]);
                         @endphp
+                        @foreach ($barisCapaian as $baris)
                         <tr>
-                            <td class="nomor">{{ $loop->iteration }}</td>
-                            <td>{{ $text($mapel->nama_pelajaran) }}</td>
-                            <td class="nilai-akhir">{{ $nilaiAkhir ?? '-' }}</td>
+                            <td class="nomor">{{ $nomorMapel }}</td>
+                            <td>{{ $loop->first ? $text($mapel->nama_pelajaran) : 'Lanjutan capaian' }}</td>
+                            <td class="nilai-akhir">{{ $loop->first ? ($nilaiAkhir ?? '-') : '' }}</td>
                             <td>
-                                <p class="capaian">{{ $text($formatif?->deskripsi_catatan_tertinggi) }}</p>
-                                <p class="capaian">{{ $text($formatif?->deskripsi_catatan_terendah) }}</p>
+                                @foreach ($baris as $paragraph)
+                                    <p class="capaian">{{ $paragraph }}</p>
+                                @endforeach
                             </td>
                         </tr>
+                        @endforeach
                     @empty
                         <tr><td colspan="4" class="nomor">-</td></tr>
                     @endforelse
