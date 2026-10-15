@@ -157,7 +157,7 @@ class RaporRenderTest extends TestCase
         });
 
         foreach ([[1, 99], null, []] as $selection) {
-            $payload = ['kelas_ajar_id' => 10];
+            $payload = ['kelas_ajar_id' => 10, 'tanggal_rapor' => '2026-06-24'];
             if ($selection !== null) $payload['siswa'] = $selection;
             $response = (new CetakDokumenController)->cetakRapor(Request::create('/cetak-rapor', 'POST', $payload));
             $expectedIds = $selection === null ? [1, 2] : ($selection === [] ? [] : [1]);

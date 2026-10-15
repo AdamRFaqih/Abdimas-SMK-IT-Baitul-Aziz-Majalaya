@@ -116,9 +116,16 @@ class CetakDokumenController extends Controller
     {
         $request->validate([
             'kelas_ajar_id' => 'required|exists:kelas_ajar,kelas_ajar_id',
+            'tanggal_rapor' => 'required|date_format:Y-m-d',
             'siswa' => 'array',
             'siswa.*' => 'exists:riwayat_kelas,riwayat_kelas_id',
+        ], [
+            'tanggal_rapor.required' => 'Tanggal Rapor wajib dipilih sebelum mencetak.',
+            'tanggal_rapor.date_format' => 'Tanggal Rapor harus berupa tanggal yang valid (YYYY-MM-DD).',
         ]);
+
+        $tanggalRapor = \Carbon\Carbon::createFromFormat('!Y-m-d', $request->input('tanggal_rapor'))
+            ->locale('id')->translatedFormat('d F Y');
 
         $sekolah = Sekolah::with(['kelurahan.kecamatan.kabupaten', 'staff.user'])->first();
         $kelasAjar = KelasAjar::with([
@@ -162,6 +169,7 @@ class CetakDokumenController extends Controller
             'siswaList' => $siswaList,
             'sekolah' => $sekolah,
             'nilaiAkhirByRiwayat' => $nilaiAkhirByRiwayat,
+            'tanggalRapor' => $tanggalRapor,
         ])->setPaper('a4', 'portrait')
             // ->download($filename);
             ->stream($filename);

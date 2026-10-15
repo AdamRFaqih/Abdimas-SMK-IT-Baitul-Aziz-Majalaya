@@ -73,7 +73,9 @@ class RaporFixture
         $sekolah = (new Sekolah)->forceFill(['nama_sekolah' => 'SMK Contoh Uji', 'alamat' => 'Jalan Pendidikan Uji Nomor 1'])
             ->setRelation('staff', $staff);
 
-        return compact('kelasAjar', 'siswaList', 'sekolah');
+        $tanggalRapor = '24 Juni 2026';
+
+        return compact('kelasAjar', 'siswaList', 'sekolah', 'tanggalRapor');
     }
 
     public static function score(int $riwayat, int $subject, int $period, string $type, ?int $nilai): SkorAsesmenSiswa

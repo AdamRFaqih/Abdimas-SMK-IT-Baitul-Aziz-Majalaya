@@ -29,10 +29,22 @@
                 <div class="mb-3">
                     <label>Jenis Dokumen</label>
                     <select name="jenis" class="form-select" id="jenisDokumen" required>
-                        <option value="sampul">Sampul Rapor</option>
-                        <option value="rapor">Rapor</option>
-                        <option value="buku_induk">Buku Induk</option>
+                        <option value="sampul" @selected(old('jenis', 'sampul') === 'sampul')>Sampul Rapor</option>
+                        <option value="rapor" @selected(old('jenis') === 'rapor')>Rapor</option>
+                        <option value="buku_induk" @selected(old('jenis') === 'buku_induk')>Buku Induk</option>
                     </select>
+                </div>
+
+                <div class="mb-3" id="tanggalRaporField" @if (old('jenis') !== 'rapor') hidden @endif>
+                    <label for="tanggalRapor" class="form-label">Tanggal Rapor</label>
+                    <input type="date" name="tanggal_rapor" id="tanggalRapor"
+                        class="form-control @error('tanggal_rapor') is-invalid @enderror"
+                        value="{{ old('tanggal_rapor', '') }}"
+                        @if (old('jenis') === 'rapor') required @else disabled @endif
+                        @error('tanggal_rapor') aria-invalid="true" aria-describedby="tanggalRaporError" @enderror>
+                    @error('tanggal_rapor')
+                        <div class="invalid-feedback" id="tanggalRaporError" role="alert">{{ $message }}</div>
+                    @enderror
                 </div>
 
                 <div class="table-responsive mt-4">
@@ -104,11 +116,17 @@
             // Ganti action form sesuai jenis dokumen
             const jenisSelect = document.getElementById('jenisDokumen');
             const form = document.getElementById('formCetakDokumen');
-            jenisSelect.addEventListener('change', function() {
+            const tanggalField = document.getElementById('tanggalRaporField');
+            const tanggalInput = document.getElementById('tanggalRapor');
+            function updateJenisDokumen() {
                 form.action = actionMap[jenisSelect.value];
-            });
-            // Set action awal
-            form.action = actionMap[jenisSelect.value];;
+                const isRapor = jenisSelect.value === 'rapor';
+                tanggalField.hidden = !isRapor;
+                tanggalInput.disabled = !isRapor;
+                tanggalInput.required = isRapor;
+            }
+            jenisSelect.addEventListener('change', updateJenisDokumen);
+            updateJenisDokumen();
         });
     </script>
 @endsection
