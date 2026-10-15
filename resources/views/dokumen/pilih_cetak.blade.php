@@ -4,6 +4,13 @@
 
 @section('css')
     <link rel="stylesheet" href="/build/css/plugins/style.css" />
+    <style>
+        #btnEditKokurikuler i {
+            font-size: 13px !important;
+            vertical-align: -1px;
+            line-height: 1;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -21,6 +28,8 @@
             @if (session('error'))
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
+
+            <div id="ajaxAlertContainer"></div>
 
             <form method="POST" action="{{ route('dokumen.cetak.sampul') }}" id="formCetakDokumen">
                 @csrf
@@ -66,6 +75,10 @@
                                 <tr>
                                     <td>
                                         <input type="checkbox" name="siswa[]" value="{{ $siswa['riwayat_kelas_id'] }}"
+                                            data-nama="{{ $siswa['nama'] }}"
+                                            data-kokurikuler="{{ $siswa['kokurikuler'] }}"
+                                            data-kokurikuler-default="{{ $siswa['kokurikuler_default'] }}"
+                                            class="siswa-checkbox"
                                             checked>
                                     </td>
                                     <td>{{ $siswa['nama'] }}</td>
@@ -81,7 +94,61 @@
 
                 <button type="submit" class="btn btn-success mt-2">Cetak PDF</button>
                 <a href="{{ route('dokumen.kelas') }}" class="btn btn-secondary mt-2">Kembali</a>
+                <button type="button" class="btn btn-primary mt-2" id="btnEditKokurikuler" style="display: none;">
+                    <i class="bi bi-pencil-square me-1" style="font-size: 13px; vertical-align: -1px; line-height: 1;"></i> Edit Kokurikuler
+                </button>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal Edit Kokurikuler -->
+    <div class="modal fade" id="modalKokurikuler" tabindex="-1" aria-labelledby="modalKokurikulerLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="modalKokurikulerLabel">Edit Kokurikuler</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="modalRiwayatKelasId">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label for="modalInputKokurikuler" class="form-label fw-semibold mb-0">
+                                Kokurikuler <span id="modalNamaSiswa" class="text-primary fw-normal small"></span>
+                            </label>
+                            <button type="button" class="btn btn-sm btn-link text-decoration-none p-0" id="btnResetDefault">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset ke Default
+                            </button>
+                        </div>
+                        <textarea class="form-control" id="modalInputKokurikuler" rows="6" maxlength="3000"
+                            aria-describedby="kokurikulerHelp kokurikulerError" placeholder="Masukkan catatan kokurikuler..."></textarea>
+                        <div class="form-text" id="kokurikulerHelp">Maksimal 3.000 karakter. Catatan kosong memakai template default.</div>
+                        <div class="text-danger mt-2" id="kokurikulerError" role="alert"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" id="btnSimpanKokurikuler">Simpan Perubahan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Alert / Notifikasi -->
+    <div class="modal fade" id="modalAlert" tabindex="-1" aria-labelledby="modalAlertLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content text-center p-3">
+                <div class="modal-body pb-2">
+                    <div class="mb-3">
+                        <i id="modalAlertIcon" class="bi bi-exclamation-circle text-warning" style="font-size: 3.25rem;"></i>
+                    </div>
+                    <h5 class="fw-bold mb-2" id="modalAlertTitle">Pemberitahuan</h5>
+                    <p class="text-muted mb-0" id="modalAlertMessage">Silakan pilih salah satu siswa terlebih dahulu.</p>
+                </div>
+                <div class="modal-footer justify-content-center border-0 pt-2">
+                    <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Mengerti</button>
+                </div>
+            </div>
         </div>
     </div>
 @endsection
@@ -113,20 +180,159 @@
                 'buku_induk': "{{ route('dokumen.cetak.buku_induk') }}"
             };
 
-            // Ganti action form sesuai jenis dokumen
+            // Ganti action form sesuai jenis dokumen & toggle button Edit Kokurikuler
             const jenisSelect = document.getElementById('jenisDokumen');
             const form = document.getElementById('formCetakDokumen');
+            const btnEditKokurikuler = document.getElementById('btnEditKokurikuler');
             const tanggalField = document.getElementById('tanggalRaporField');
             const tanggalInput = document.getElementById('tanggalRapor');
-            function updateJenisDokumen() {
-                form.action = actionMap[jenisSelect.value];
+
+            function updateUIForJenis() {
+                form.action = actionMap[jenisSelect.value] || form.action;
                 const isRapor = jenisSelect.value === 'rapor';
                 tanggalField.hidden = !isRapor;
                 tanggalInput.disabled = !isRapor;
                 tanggalInput.required = isRapor;
+                if (btnEditKokurikuler) {
+                    btnEditKokurikuler.style.display = (jenisSelect.value === 'rapor') ? 'inline-block' : 'none';
+                }
             }
-            jenisSelect.addEventListener('change', updateJenisDokumen);
-            updateJenisDokumen();
+
+            jenisSelect.addEventListener('change', updateUIForJenis);
+            updateUIForJenis();
+
+            // Modal Alert helper
+            const modalAlertEl = document.getElementById('modalAlert');
+            const modalAlertInstance = modalAlertEl ? new bootstrap.Modal(modalAlertEl) : null;
+            const modalAlertTitle = document.getElementById('modalAlertTitle');
+            const modalAlertMessage = document.getElementById('modalAlertMessage');
+            const modalAlertIcon = document.getElementById('modalAlertIcon');
+
+            function showAlertModal(message, title = 'Pemberitahuan', icon = 'bi-exclamation-circle text-warning') {
+                if (modalAlertTitle) modalAlertTitle.textContent = title;
+                if (modalAlertMessage) modalAlertMessage.textContent = message;
+                if (modalAlertIcon) modalAlertIcon.className = `bi ${icon}`;
+                if (modalAlertInstance) {
+                    modalAlertInstance.show();
+                } else {
+                    alert(message);
+                }
+            }
+
+            // Modal Kokurikuler
+            const modalEl = document.getElementById('modalKokurikuler');
+            const modalInstance = modalEl ? new bootstrap.Modal(modalEl) : null;
+            const modalRiwayatKelasId = document.getElementById('modalRiwayatKelasId');
+            const modalNamaSiswa = document.getElementById('modalNamaSiswa');
+            const modalInputKokurikuler = document.getElementById('modalInputKokurikuler');
+            const btnSimpanKokurikuler = document.getElementById('btnSimpanKokurikuler');
+            const ajaxAlertContainer = document.getElementById('ajaxAlertContainer');
+            const kokurikulerError = document.getElementById('kokurikulerError');
+            let defaultKokurikuler = '';
+            let resetToDefault = false;
+            modalInputKokurikuler.addEventListener('input', function() {
+                resetToDefault = false;
+                kokurikulerError.textContent = '';
+            });
+
+            if (btnEditKokurikuler) {
+                btnEditKokurikuler.addEventListener('click', function() {
+                    const checkedBoxes = Array.from(document.querySelectorAll('input[name="siswa[]"]:checked'));
+
+                    if (checkedBoxes.length === 0) {
+                        showAlertModal('Silakan pilih salah satu siswa terlebih dahulu.', 'Pemberitahuan', 'bi-exclamation-circle text-warning');
+                        return;
+                    }
+
+                    if (checkedBoxes.length > 1) {
+                        showAlertModal('Pilih hanya 1 siswa untuk mengedit catatan kokurikuler (saat ini terpilih ' + checkedBoxes.length + ' siswa).', 'Pemberitahuan', 'bi-exclamation-circle text-warning');
+                        return;
+                    }
+
+                    const targetCb = checkedBoxes[0];
+                    const riwayatKelasId = targetCb.value;
+                    const nama = targetCb.getAttribute('data-nama') || '';
+                    defaultKokurikuler = targetCb.getAttribute('data-kokurikuler-default') || '';
+                    const kokurikuler = targetCb.getAttribute('data-kokurikuler') || defaultKokurikuler;
+                    resetToDefault = false;
+                    kokurikulerError.textContent = '';
+
+                    modalRiwayatKelasId.value = riwayatKelasId;
+                    modalNamaSiswa.textContent = nama ? `(${nama})` : '';
+                    modalInputKokurikuler.value = kokurikuler;
+
+                    if (modalInstance) {
+                        modalInstance.show();
+                    }
+                });
+            }
+
+            const btnResetDefault = document.getElementById('btnResetDefault');
+            if (btnResetDefault) {
+                btnResetDefault.addEventListener('click', function() {
+                    modalInputKokurikuler.value = defaultKokurikuler;
+                    resetToDefault = true;
+                    kokurikulerError.textContent = '';
+                });
+            }
+
+            if (btnSimpanKokurikuler) {
+                btnSimpanKokurikuler.addEventListener('click', async function() {
+                    const riwayatKelasId = modalRiwayatKelasId.value;
+                    if (!modalInputKokurikuler.reportValidity()) return;
+                    const kokurikulerText = resetToDefault ? null : modalInputKokurikuler.value;
+                    kokurikulerError.textContent = '';
+
+                    btnSimpanKokurikuler.disabled = true;
+                    btnSimpanKokurikuler.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Menyimpan...';
+
+                    try {
+                        const response = await fetch("{{ route('dokumen.simpan.kokurikuler') }}", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                riwayat_kelas_id: riwayatKelasId,
+                                kokurikuler: kokurikulerText
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (response.ok && result.status === 'success') {
+                            // Update attribute on checkbox
+                            const cb = document.querySelector(`input[name="siswa[]"][value="${riwayatKelasId}"]`);
+                            if (cb) {
+                                cb.setAttribute('data-kokurikuler', result.kokurikuler ?? '');
+                            }
+
+                            if (modalInstance) {
+                                modalInstance.hide();
+                            }
+
+                            if (ajaxAlertContainer) {
+                                const alertEl = document.createElement('div');
+                                alertEl.className = 'alert alert-success';
+                                alertEl.setAttribute('role', 'alert');
+                                alertEl.textContent = result.message || 'Catatan kokurikuler berhasil disimpan.';
+                                ajaxAlertContainer.replaceChildren(alertEl);
+                                ajaxAlertContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            }
+                        } else {
+                            kokurikulerError.textContent = result.errors?.kokurikuler?.[0] || result.message || 'Gagal menyimpan catatan kokurikuler.';
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        kokurikulerError.textContent = 'Terjadi kesalahan koneksi saat menyimpan catatan kokurikuler.';
+                    } finally {
+                        btnSimpanKokurikuler.disabled = false;
+                        btnSimpanKokurikuler.innerHTML = 'Simpan Perubahan';
+                    }
+                });
+            }
         });
     </script>
 @endsection

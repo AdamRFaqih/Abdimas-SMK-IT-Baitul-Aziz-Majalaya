@@ -23,8 +23,10 @@
         .capaian + .capaian { border-top: 0.5pt solid #000; margin-top: 4pt; padding-top: 4pt; }
         .penutup { page-break-inside: avoid; }
         .kokurikuler { margin-bottom: 5mm; }
-        .kokurikuler th, .kokurikuler td, .ketidakhadiran th, .ketidakhadiran td, .keputusan th, .keputusan td { border: 0.7pt solid #000; padding: 4pt; }
-        .kokurikuler td { text-align: center; height: 10mm; }
+        .kokurikuler { border: 0.7pt solid #000; }
+        .kokurikuler h2 { font-size: 11pt; text-align: center; margin: 0; padding: 4pt; border-bottom: 0.7pt solid #000; page-break-after: avoid; }
+        .catatan-kokurikuler { margin: 0; padding: 4pt; overflow-wrap: break-word; white-space: pre-wrap; }
+        .ketidakhadiran th, .ketidakhadiran td, .keputusan th, .keputusan td { border: 0.7pt solid #000; padding: 4pt; }
         .rekap > tbody > tr > td { vertical-align: top; padding: 0; }
         .ketidakhadiran th, .keputusan th { text-align: center; }
         .jumlah { text-align: center; }
@@ -133,11 +135,11 @@
                 </tbody>
             </table>
 
+            <div class="kokurikuler">
+                <h2>Kokurikuler</h2>
+                <p class="catatan-kokurikuler">{{ $rk->kokurikuler }}</p>
+            </div>
             <div class="penutup">
-                <table class="kokurikuler">
-                    <tr><th>Kokurikuler</th></tr>
-                    <tr><td>-</td></tr>
-                </table>
                 <table class="rekap">
                     <tr>
                         <td style="width: 45%">
