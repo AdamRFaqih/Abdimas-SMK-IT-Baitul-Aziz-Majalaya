@@ -73,7 +73,7 @@ class KokurikulerPrintTest extends TestCase
         $default = 'Ananda Peserta cukup Mampu menerapkan perilaku keimanan dan ketakwaan terhadap Tuhan Yang Maha Esa dengan cukup ,serta memiliki kemandirian yang cukup mampu dalam menyelesaikan tugas';
         $this->assertStringContainsString($default, $sections[2]);
         $this->assertSame([1 => [1 => 83], 2 => [1 => null]], $captured['nilaiAkhirByRiwayat']);
-        $this->assertSame(4, substr_count($html, 'Bandung, 24 Juni 2026'));
+        $this->assertSame(6, substr_count($html, 'Bandung, 24 Juni 2026'));
         $this->assertSame($before, DB::table('skor_asesmen_siswa')->get()->toJson());
 
         $this->postJson('/dokumen/simpan-kokurikuler', ['riwayat_kelas_id' => 1, 'kokurikuler' => '   '])

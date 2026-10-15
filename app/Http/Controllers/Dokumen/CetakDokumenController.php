@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\KelasAjar;
 use App\Models\RiwayatKelas;
 use App\Models\Sekolah;
+use App\Models\SiswaEkstrakurikuler;
+use App\Models\KehadiranEkstrakurikuler;
 use App\Support\RaporNilaiCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -189,6 +191,7 @@ class CetakDokumenController extends Controller
         $siswaList = $kelasAjar->riwayatKelas->whereIn('riwayat_kelas_id', $siswaIds);
 
         $nilaiAkhirByRiwayat = $this->nilaiRaporByRiwayat($kelasAjar, $siswaList);
+        $ekskulByRiwayat = $this->ekskulByRiwayat($kelasAjar, $siswaList);
 
         // This request only: retain the existing class order in both sections.
         [$mapelSit, $mapelUtama] = $kelasAjar->intrakurikuler->partition(
@@ -224,11 +227,46 @@ class CetakDokumenController extends Controller
             'tanggalRapor' => $tanggalRapor,
             'mapelUtama' => $mapelUtama,
             'mapelSit' => $mapelSit,
+            'ekskulByRiwayat' => $ekskulByRiwayat,
         ])->setPaper('a4', 'portrait')
             // ->download($filename);
             ->stream($filename);
 
         return $pdf;
+    }
+
+    /** Read memberships by student and semester, never by the legacy history FK. */
+    private function ekskulByRiwayat(KelasAjar $kelasAjar, Collection $siswaList): array
+    {
+        $peserta = SiswaEkstrakurikuler::query()
+            ->whereIn('siswa_id', $siswaList->pluck('siswa_id'))
+            ->whereHas('ekstrakurikuler', fn ($query) => $query->where('tahun_ajaran_id', $kelasAjar->tahun_ajaran_id))
+            ->with(['ekstrakurikuler.pembina', 'penilaians' => fn ($query) => $query->orderBy('penilaian_ekstrakurikuler_id')])
+            ->orderBy('siswa_ekstrakurikuler_id')
+            ->get();
+        $absensi = KehadiranEkstrakurikuler::query()
+            ->whereIn('siswa_ekstrakurikuler_id', $peserta->modelKeys())
+            ->whereIn('ekstrakurikuler_id', $peserta->pluck('ekstrakurikuler_id'))
+            ->get()->groupBy('siswa_ekstrakurikuler_id');
+
+        foreach ($peserta as $anggota) {
+            $kehadiran = ($absensi->get($anggota->getKey()) ?? collect())
+                ->where('ekstrakurikuler_id', $anggota->ekstrakurikuler_id);
+            $anggota->setRelation('kehadiran', $kehadiran);
+            $anggota->rekap_kehadiran = [
+                'sakit' => $kehadiran->where('status', 'sakit')->count(),
+                'izin' => $kehadiran->where('status', 'izin')->count(),
+                'alpha' => $kehadiran->where('status', 'alpha')->count(),
+            ];
+        }
+
+        $bySiswa = $peserta->groupBy('siswa_id');
+        $result = [];
+        foreach ($siswaList as $rk) {
+            $result[$rk->riwayat_kelas_id] = $bySiswa->get($rk->siswa_id) ?? collect();
+        }
+
+        return $result;
     }
 
     /** Read loaded scores using the same component selection as the sumatif index. */

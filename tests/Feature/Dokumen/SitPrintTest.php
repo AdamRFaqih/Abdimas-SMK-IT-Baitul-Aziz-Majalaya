@@ -85,7 +85,7 @@ class SitPrintTest extends TestCase
             array_map(fn ($p) => $p->textContent, iterator_to_array($xpath->query('//p[@class="capaian"]'))),
         );
         $html = view('dokumen.pdf_rapor', $after)->render();
-        $this->assertSame(4, substr_count($html, 'Bandung, 24 Juni 2026'));
+        $this->assertSame(6, substr_count($html, 'Bandung, 24 Juni 2026'));
         $this->assertStringContainsString('&lt;b&gt;latihan mandiri&lt;/b&gt;', $html);
         $this->assertStringContainsString('AKHIR-SIT', $html);
     }

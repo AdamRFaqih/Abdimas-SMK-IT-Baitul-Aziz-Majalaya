@@ -7,7 +7,7 @@
         @page { size: A4 portrait; margin: 15mm; }
         body { margin: 0; font-family: "Times New Roman", Times, serif; font-size: 11pt; line-height: 1.2; color: #000; }
         .watermark { position: fixed; top: 65mm; left: 25mm; width: 130mm; opacity: 0.06; z-index: -1000; }
-        .rapor-siswa + .rapor-siswa, .rapor-sit { page-break-before: always; }
+        .rapor-siswa + .rapor-siswa, .rapor-sit, .rapor-ekskul { page-break-before: always; }
         h1 { text-align: center; font-size: 14pt; margin: 0 0 8mm; line-height: 1.4; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .identitas { margin-bottom: 5mm; }
@@ -36,6 +36,13 @@
         .ruang-ttd { height: 22mm; }
         .kepala-sekolah { margin-top: 5mm; text-align: center; }
         .nama-kepala { font-weight: bold; }
+        .rapor-ekskul h1 { font-size: 13pt; text-decoration: underline; }
+        .rapor-ekskul h2 { font-size: 11pt; margin: 6mm 0 3mm; page-break-after: avoid; }
+        .deskripsi-ekskul { white-space: pre-wrap; }
+        /* Let DomPDF honor second-row widths beneath the merged Nilai header. */
+        .nilai-ekskul { table-layout: auto; }
+        .ketentuan { border: 0.7pt solid #000; padding: 4pt; }
+        .ketentuan td { padding: 1pt 2pt; }
     </style>
 </head>
 <body>
@@ -113,6 +120,12 @@
             </div>
             </div>
             @include('dokumen.rapor.sit')
+            @php($keikutsertaan = $ekskulByRiwayat[$rk->riwayat_kelas_id] ?? collect())
+            @forelse ($keikutsertaan as $pesertaEkskul)
+                @include('dokumen.rapor.ekstrakurikuler')
+            @empty
+                @include('dokumen.rapor.ekstrakurikuler', ['pesertaEkskul' => null])
+            @endforelse
         </section>
     @endforeach
 </body>
