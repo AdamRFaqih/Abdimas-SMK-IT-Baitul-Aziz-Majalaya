@@ -56,27 +56,6 @@
                     @enderror
                 </div>
 
-                <fieldset class="mb-3" id="sitMapelField" aria-describedby="sitMapelHelp"
-                    @if (old('jenis') !== 'rapor') hidden disabled @endif>
-                    <legend class="fs-6">Muatan SIT (opsional)</legend>
-                    <p class="form-text" id="sitMapelHelp">Pilihan hanya berlaku untuk cetak ini. Mapel yang dipilih dicetak di halaman SIT, sisanya di rapor utama. Tanpa pilihan, seluruh mapel tetap di rapor utama.</p>
-                    @forelse ($kelasAjar->intrakurikuler as $mapel)
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input" name="sit_mapel_ids[]"
-                                id="sitMapel{{ $mapel->intrakurikuler_id }}" value="{{ $mapel->intrakurikuler_id }}"
-                                @checked(in_array($mapel->intrakurikuler_id, (array) old('sit_mapel_ids', [])))>
-                            <label class="form-check-label" for="sitMapel{{ $mapel->intrakurikuler_id }}">{{ $mapel->nama_pelajaran }}</label>
-                        </div>
-                    @empty
-                        <p class="form-text">Belum ada mata pelajaran pada kelas ini.</p>
-                    @endforelse
-                    @foreach ($errors->get('sit_mapel_ids*') as $messages)
-                        @foreach ($messages as $message)
-                            <div class="text-danger" role="alert">{{ $message }}</div>
-                        @endforeach
-                    @endforeach
-                </fieldset>
-
                 <div class="table-responsive mt-4">
                     <table class="table table-bordered">
                         <thead>
@@ -207,7 +186,6 @@
             const btnEditKokurikuler = document.getElementById('btnEditKokurikuler');
             const tanggalField = document.getElementById('tanggalRaporField');
             const tanggalInput = document.getElementById('tanggalRapor');
-            const sitField = document.getElementById('sitMapelField');
 
             function updateUIForJenis() {
                 form.action = actionMap[jenisSelect.value] || form.action;
@@ -215,8 +193,6 @@
                 tanggalField.hidden = !isRapor;
                 tanggalInput.disabled = !isRapor;
                 tanggalInput.required = isRapor;
-                sitField.hidden = !isRapor;
-                sitField.disabled = !isRapor;
                 if (btnEditKokurikuler) {
                     btnEditKokurikuler.style.display = (jenisSelect.value === 'rapor') ? 'inline-block' : 'none';
                 }

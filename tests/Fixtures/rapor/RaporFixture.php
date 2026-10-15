@@ -74,10 +74,8 @@ class RaporFixture
             ->setRelation('staff', $staff);
 
         $tanggalRapor = '24 Juni 2026';
-        $mapelUtama = $mapels;
-        $mapelSit = new Collection;
 
-        return compact('kelasAjar', 'siswaList', 'sekolah', 'tanggalRapor', 'mapelUtama', 'mapelSit');
+        return compact('kelasAjar', 'siswaList', 'sekolah', 'tanggalRapor');
     }
 
     public static function score(int $riwayat, int $subject, int $period, string $type, ?int $nilai): SkorAsesmenSiswa

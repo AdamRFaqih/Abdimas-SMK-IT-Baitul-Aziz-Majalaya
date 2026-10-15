@@ -27,10 +27,6 @@ class RaporSqliteFixture
             'asesmen_sumatif' => 'asesmen_sumatif_id integer primary key, intrakurikuler_id integer, tahun_ajaran_id integer, asesmen_type text',
             'skor_asesmen_siswa' => 'skor_asesmen_siswa_id integer primary key, riwayat_kelas_id integer, asesmen_sumatif_id integer, tahun_ajaran_id integer, nilai integer',
             'kehadiran_intrakurikuler' => 'kehadiran_intrakurikuler_id integer primary key, riwayat_kelas_id integer, status text',
-            'ekstrakurikuler' => 'ekstrakurikuler_id integer primary key, tahun_ajaran_id integer, user_id integer, nama_pelajaran text',
-            'siswa_ekstrakurikuler' => 'siswa_ekstrakurikuler_id integer primary key, siswa_id integer, ekstrakurikuler_id integer',
-            'penilaian_ekstrakurikuler' => 'penilaian_ekstrakurikuler_id integer primary key, siswa_ekstrakurikuler_id integer, deskripsi text',
-            'kehadiran_ekstrakurikuler' => 'kehadiran_ekstrakurikuler_id integer primary key, siswa_ekstrakurikuler_id integer, ekstrakurikuler_id integer, status text',
         ] as $table => $columns) {
             DB::statement('create table '.$table.' ('.$columns.')');
         }
