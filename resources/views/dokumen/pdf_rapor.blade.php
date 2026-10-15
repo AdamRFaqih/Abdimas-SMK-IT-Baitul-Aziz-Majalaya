@@ -7,7 +7,7 @@
         @page { size: A4 portrait; margin: 15mm; }
         body { margin: 0; font-family: "Times New Roman", Times, serif; font-size: 11pt; line-height: 1.2; color: #000; }
         .watermark { position: fixed; top: 65mm; left: 25mm; width: 130mm; opacity: 0.06; z-index: -1000; }
-        .rapor-siswa + .rapor-siswa { page-break-before: always; }
+        .rapor-siswa + .rapor-siswa, .rapor-sit { page-break-before: always; }
         h1 { text-align: center; font-size: 14pt; margin: 0 0 8mm; line-height: 1.4; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .identitas { margin-bottom: 5mm; }
@@ -76,64 +76,11 @@
             $genap = strtolower(trim($tahunAjaran?->semester ?? '')) === 'genap';
         @endphp
         <section class="rapor-siswa">
+            <div class="rapor-utama">
             <h1>LAPORAN HASIL BELAJAR<br>(RAPOR)</h1>
-            <table class="identitas">
-                <tr>
-                    <td style="width: 24%">Nama Peserta Didik</td><td style="width: 2%">:</td><td style="width: 35%">{{ $text($siswa?->user?->name ?: $siswa?->nama) }}</td>
-                    <td style="width: 18%">Kelas</td><td style="width: 2%">:</td><td style="width: 19%">{{ $text($namaKelas) }}</td>
-                </tr>
-                <tr>
-                    <td>NISN</td><td>:</td><td>{{ $text($siswa?->nisn) }}</td>
-                    <td>Fase</td><td>:</td><td class="fase">{{ $fase }}</td>
-                </tr>
-                <tr>
-                    <td>Sekolah</td><td>:</td><td>{{ $text($sekolah?->nama_sekolah) }}</td>
-                    <td>Semester</td><td>:</td><td>{{ $text($tahunAjaran?->semester) }}</td>
-                </tr>
-                <tr>
-                    <td>Alamat</td><td>:</td><td>{{ $text($sekolah?->alamat) }}</td>
-                    <td>Tahun Pelajaran</td><td>:</td><td>{{ $text($tahunAjaran?->tahun) }}</td>
-                </tr>
-            </table>
+            @include('dokumen.rapor.identitas')
 
-            <table class="nilai">
-                <thead>
-                    <tr>
-                        <th style="width: 5%">No</th><th style="width: 27%">Muatan Pelajaran</th>
-                        <th style="width: 9%">Nilai<br>Akhir</th><th style="width: 59%">Capaian Kompetensi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($kelasAjar->intrakurikuler as $mapel)
-                        @php
-                            $formatif = $mapel->asesmenFormatif
-                                ->where('riwayat_kelas_id', $rk->riwayat_kelas_id)
-                                ->where('intrakurikuler_id', $mapel->intrakurikuler_id)
-                                ->first();
-                            $nilaiAkhir = $nilaiAkhirByRiwayat[$rk->riwayat_kelas_id][$mapel->intrakurikuler_id] ?? null;
-                            $nomorMapel = $loop->iteration;
-                            $barisCapaian = $capaianRows([
-                                $text($formatif?->deskripsi_catatan_tertinggi),
-                                $text($formatif?->deskripsi_catatan_terendah),
-                            ]);
-                        @endphp
-                        @foreach ($barisCapaian as $baris)
-                        <tr>
-                            <td class="nomor">{{ $nomorMapel }}</td>
-                            <td>{{ $loop->first ? $text($mapel->nama_pelajaran) : 'Lanjutan capaian' }}</td>
-                            <td class="nilai-akhir">{{ $loop->first ? ($nilaiAkhir ?? '-') : '' }}</td>
-                            <td>
-                                @foreach ($baris as $paragraph)
-                                    <p class="capaian">{{ $paragraph }}</p>
-                                @endforeach
-                            </td>
-                        </tr>
-                        @endforeach
-                    @empty
-                        <tr><td colspan="4" class="nomor">-</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+            @include('dokumen.rapor.tabel-nilai', ['mapels' => $mapelUtama])
 
             <div class="kokurikuler">
                 <h2>Kokurikuler</h2>
@@ -162,21 +109,10 @@
                     </tr>
                 </table>
 
-                <table class="tanda-tangan">
-                    <tr>
-                        <td style="width: 40%"><br>Orang Tua,</td>
-                        <td style="width: 20%"></td>
-                        <td style="width: 40%">Bandung, {{ $tanggalRapor }}<br>Wali Kelas,</td>
-                    </tr>
-                    <tr><td class="ruang-ttd"></td><td></td><td></td></tr>
-                    <tr><td>.................................................</td><td></td><td>{{ $text($kelasAjar->waliKelas?->name) }}</td></tr>
-                </table>
-                <div class="kepala-sekolah">
-                    Mengetahui,<br>Kepala Sekolah
-                    <div class="ruang-ttd"></div>
-                    <span class="nama-kepala">{{ $namaKepala }}</span>
-                </div>
+                @include('dokumen.rapor.tanda-tangan')
             </div>
+            </div>
+            @include('dokumen.rapor.sit')
         </section>
     @endforeach
 </body>

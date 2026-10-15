@@ -10,6 +10,7 @@ use App\Support\RaporNilaiCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 // use Spatie\LaravelPdf\Facades\Pdf;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -47,7 +48,7 @@ class CetakDokumenController extends Controller
     // Halaman pilih siswa dan jenis dokumen untuk dicetak
     public function pilihCetak($kelas_ajar)
     {
-        $kelasAjar = KelasAjar::with(['kelas', 'tahunAjaran', 'waliKelas', 'riwayatKelas.siswa.user'])->findOrFail($kelas_ajar);
+        $kelasAjar = KelasAjar::with(['kelas', 'tahunAjaran', 'waliKelas', 'intrakurikuler', 'riwayatKelas.siswa.user'])->findOrFail($kelas_ajar);
 
         $user = Auth::user();
         if (!$user->hasRole('Bagian Akademik') && $user->id != $kelasAjar->wali_user_id) {
@@ -152,11 +153,22 @@ class CetakDokumenController extends Controller
         $request->validate([
             'kelas_ajar_id' => 'required|exists:kelas_ajar,kelas_ajar_id',
             'tanggal_rapor' => 'required|date_format:Y-m-d',
+            'sit_mapel_ids' => 'sometimes|array',
+            'sit_mapel_ids.*' => [
+                'required', 'integer', 'distinct',
+                Rule::exists('intrakurikuler', 'intrakurikuler_id')
+                    ->where('kelas_ajar_id', $request->input('kelas_ajar_id')),
+            ],
             'siswa' => 'array',
             'siswa.*' => 'exists:riwayat_kelas,riwayat_kelas_id',
         ], [
             'tanggal_rapor.required' => 'Tanggal Rapor wajib dipilih sebelum mencetak.',
             'tanggal_rapor.date_format' => 'Tanggal Rapor harus berupa tanggal yang valid (YYYY-MM-DD).',
+            'sit_mapel_ids.array' => 'Pilihan Muatan SIT harus berupa daftar mata pelajaran.',
+            'sit_mapel_ids.*.required' => 'Pilih mata pelajaran SIT yang valid.',
+            'sit_mapel_ids.*.integer' => 'Pilih mata pelajaran SIT yang valid.',
+            'sit_mapel_ids.*.distinct' => 'Mata pelajaran SIT tidak boleh dipilih lebih dari sekali.',
+            'sit_mapel_ids.*.exists' => 'Mata pelajaran SIT harus berasal dari kelas yang dipilih.',
         ]);
 
         $tanggalRapor = \Carbon\Carbon::createFromFormat('!Y-m-d', $request->input('tanggal_rapor'))
@@ -177,6 +189,11 @@ class CetakDokumenController extends Controller
         $siswaList = $kelasAjar->riwayatKelas->whereIn('riwayat_kelas_id', $siswaIds);
 
         $nilaiAkhirByRiwayat = $this->nilaiRaporByRiwayat($kelasAjar, $siswaList);
+
+        // This request only: retain the existing class order in both sections.
+        [$mapelSit, $mapelUtama] = $kelasAjar->intrakurikuler->partition(
+            fn ($mapel) => in_array($mapel->intrakurikuler_id, $request->input('sit_mapel_ids', []))
+        );
 
         // Hitung kehadiran per siswa
         foreach ($siswaList as $rk) {
@@ -205,6 +222,8 @@ class CetakDokumenController extends Controller
             'sekolah' => $sekolah,
             'nilaiAkhirByRiwayat' => $nilaiAkhirByRiwayat,
             'tanggalRapor' => $tanggalRapor,
+            'mapelUtama' => $mapelUtama,
+            'mapelSit' => $mapelSit,
         ])->setPaper('a4', 'portrait')
             // ->download($filename);
             ->stream($filename);

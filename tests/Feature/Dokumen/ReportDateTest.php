@@ -37,7 +37,8 @@ class ReportDateTest extends TestCase
         $this->assertStringStartsWith('%PDF-', $response->getContent());
         $this->assertSame('24 Juni 2026', $captured['tanggalRapor'] ?? null);
         $html = view('dokumen.pdf_rapor', $captured)->render();
-        $this->assertSame(2, substr_count($html, 'Bandung, 24 Juni 2026'));
+        // Main and SIT each print the same chosen date for both students.
+        $this->assertSame(4, substr_count($html, 'Bandung, 24 Juni 2026'));
         $this->assertStringNotContainsString('15 Oktober 2026', $html);
     }
 
