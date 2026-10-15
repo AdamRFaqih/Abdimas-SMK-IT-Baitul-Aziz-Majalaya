@@ -4,6 +4,13 @@
 
 @section('css')
     <link rel="stylesheet" href="/build/css/plugins/style.css" />
+    <style>
+        #btnEditKokurikuler i {
+            font-size: 13px !important;
+            vertical-align: -1px;
+            line-height: 1;
+        }
+    </style>
 @endsection
 
 @section('content')
@@ -75,7 +82,7 @@
                 <button type="submit" class="btn btn-success mt-2">Cetak PDF</button>
                 <a href="{{ route('dokumen.kelas') }}" class="btn btn-secondary mt-2">Kembali</a>
                 <button type="button" class="btn btn-primary mt-2" id="btnEditKokurikuler" style="display: none;">
-                    <i class="bi bi-pencil-square me-1"></i> Edit Kokurikuler
+                    <i class="bi bi-pencil-square me-1" style="font-size: 13px; vertical-align: -1px; line-height: 1;"></i> Edit Kokurikuler
                 </button>
             </form>
         </div>
