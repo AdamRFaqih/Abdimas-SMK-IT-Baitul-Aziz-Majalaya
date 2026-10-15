@@ -16,7 +16,23 @@ class RiwayatKelas extends Model
     protected $fillable = [
         'siswa_id',
         'kelas_ajar_id',
+        'kokurikuler',
     ];
+
+    /**
+     * Catatan kokurikuler siswa (default template jika belum diisi)
+     */
+    public function getKokurikulerAttribute($value): string
+    {
+        if (!empty($value)) {
+            return $value;
+        }
+
+        $namaLengkap = $this->siswa?->user?->name ?? $this->siswa?->nama ?? 'Siswa';
+        $namaDepan = explode(' ', trim($namaLengkap))[0] ?? 'Siswa';
+
+        return "Ananda {$namaDepan} cukup Mampu menerapkan perilaku keimanan dan ketakwaan terhadap Tuhan Yang Maha Esa dengan cukup ,serta memiliki kemandirian yang cukup mampu dalam menyelesaikan tugas";
+    }
 
     /**
      * RiwayatKelas milik satu Siswa

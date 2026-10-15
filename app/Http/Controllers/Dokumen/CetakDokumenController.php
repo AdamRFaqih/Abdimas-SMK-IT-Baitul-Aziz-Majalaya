@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dokumen;
 
 use App\Http\Controllers\Controller;
 use App\Models\KelasAjar;
+use App\Models\RiwayatKelas;
 use App\Models\Sekolah;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -65,6 +66,7 @@ class CetakDokumenController extends Controller
                 'nisn' => $siswa->nisn,
                 'jenis_kelamin' => $siswa->jenis_kelamin,
                 'alamat' => $siswa->alamat . ' Kel. ' . $siswa->kelurahan->nama . ' Kec. ' . $siswa->kelurahan->kecamatan->nama . $siswa->kelurahan->kecamatan->kabupaten->nama,
+                'kokurikuler' => $rk->kokurikuler ?? '',
             ];
         });
 
@@ -264,5 +266,36 @@ class CetakDokumenController extends Controller
             ->stream($filename);
 
         return $pdf;
+    }
+
+    // Simpan Catatan Kokurikuler Siswa
+    public function simpanKokurikuler(Request $request)
+    {
+        $request->validate([
+            'riwayat_kelas_id' => 'required|exists:riwayat_kelas,riwayat_kelas_id',
+            'kokurikuler' => 'nullable|string',
+        ]);
+
+        $rk = RiwayatKelas::with('kelasAjar')->findOrFail($request->riwayat_kelas_id);
+
+        $user = Auth::user();
+        if (!$user->hasRole('Bagian Akademik') && $user->id != $rk->kelasAjar->wali_user_id) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Anda tidak memiliki akses untuk mengubah data ini.',
+            ], 403);
+        }
+
+        $kokurikulerValue = filled($request->kokurikuler) ? trim($request->kokurikuler) : null;
+
+        $rk->update([
+            'kokurikuler' => $kokurikulerValue,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Catatan kokurikuler berhasil disimpan.',
+            'kokurikuler' => $rk->kokurikuler ?? '',
+        ]);
     }
 }

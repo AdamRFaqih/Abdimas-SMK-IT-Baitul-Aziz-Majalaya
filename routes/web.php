@@ -231,6 +231,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('cetak-buku-induk', [CetakDokumenController::class, 'cetakBukuInduk'])->name('cetak.buku_induk');
         Route::get('mutasi', [CetakDokumenController::class, 'mutasi'])->name('mutasi');
         Route::post('cetak-mutasi', [CetakDokumenController::class, 'cetakMutasi'])->name('cetak.mutasi');
+        Route::post('simpan-kokurikuler', [CetakDokumenController::class, 'simpanKokurikuler'])->name('simpan.kokurikuler');
     });
 });
 

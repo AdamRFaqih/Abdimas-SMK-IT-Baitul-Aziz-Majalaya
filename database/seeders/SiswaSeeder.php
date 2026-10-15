@@ -48,19 +48,19 @@ class SiswaSeeder extends Seeder
             for ($i = 1; $i <= $jumlahSiswa; $i++) {
                 $nis = '25RPL1' . str_pad($i, 3, '0', STR_PAD_LEFT);
                 $nisn = '10025' . str_pad($i, 5, '0', STR_PAD_LEFT);
-                $nama = 'Siswa RPL ' . $i;
-                $jenis_kelamin = $i % 2 === 0 ? 'l' : 'p';
+                $nama = ($i === 1) ? 'Anton Susilo' : 'Siswa RPL ' . $i;
+                $jenis_kelamin = ($i === 1) ? 'l' : ($i % 2 === 0 ? 'l' : 'p');
                 $tanggal_lahir = '2010-' . str_pad(($i % 12) + 1, 2, '0', STR_PAD_LEFT) . '-' . (($i % 28) + 1);
-                $agama = $i % 3 === 0 ? 'Kristen' : ($i % 2 === 0 ? 'Islam' : 'Hindu');
-                $pendidikan_sebelumnya = 'SDN ' . $i . ' Contoh';
-                $alamat = 'Jl. Siswa RPL ' . $i;
+                $agama = ($i === 1) ? 'Islam' : ($i % 3 === 0 ? 'Kristen' : ($i % 2 === 0 ? 'Islam' : 'Hindu'));
+                $pendidikan_sebelumnya = ($i === 1) ? 'SMP Negeri 1 Majalaya' : 'SDN ' . $i . ' Contoh';
+                $alamat = ($i === 1) ? 'Jl. Raya Majalaya No. 12' : 'Jl. Siswa RPL ' . $i;
 
                 // Ortu
-                $ortu_nama_ayah = 'Ayah RPL ' . $i;
-                $ortu_nama_ibu = 'Ibu RPL ' . $i;
+                $ortu_nama_ayah = ($i === 1) ? 'Budi Susilo' : 'Ayah RPL ' . $i;
+                $ortu_nama_ibu = ($i === 1) ? 'Siti Rahma' : 'Ibu RPL ' . $i;
                 $ortu_pekerjaan_ayah = $i % 2 === 0 ? 'Guru' : 'Petani';
                 $ortu_pekerjaan_ibu = $i % 2 === 0 ? 'Ibu Rumah Tangga' : 'Pedagang';
-                $ortu_jalan = 'Jl. Ortu RPL ' . $i;
+                $ortu_jalan = ($i === 1) ? 'Jl. Raya Majalaya No. 12' : 'Jl. Ortu RPL ' . $i;
 
                 // 1. Buat user siswa
                 $userSiswa = User::firstOrCreate([
@@ -70,6 +70,7 @@ class SiswaSeeder extends Seeder
                     'email' => null,
                     'password' => Hash::make('password123'),
                 ]);
+                $userSiswa->update(['name' => $nama]);
                 $userSiswa->assignRole('Siswa');
 
                 // 2. Buat user ortu
@@ -116,6 +117,11 @@ class SiswaSeeder extends Seeder
                     'alamat' => $alamat,
                     'orang_tua_id' => $orangTua->orang_tua_id,
                     'kelurahan_id' => $kelurahan->kelurahan_id,
+                ]);
+                $siswa->update([
+                    'nama' => $nama,
+                    'jenis_kelamin' => $jenis_kelamin,
+                    'alamat' => $alamat,
                 ]);
 
                 // 5. Masukkan ke kelas ajar (pastikan 1 siswa hanya 1 kelas per tahun ajaran)
