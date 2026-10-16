@@ -17,7 +17,23 @@ class RiwayatKelas extends Model
         'siswa_id',
         'kelas_ajar_id',
         'kokurikuler',
+        'status_kenaikan_kelas',
+        'kelas_tujuan',
     ];
+
+    public function getInformasiKenaikanKelasAttribute(): string
+    {
+        if ($this->status_kenaikan_kelas === 'tidak_naik') {
+            return 'Tidak naik kelas';
+        }
+
+        $tujuan = trim($this->kelas_tujuan ?? '');
+        if ($this->status_kenaikan_kelas === 'naik' && $tujuan !== '') {
+            return 'Naik ke kelas: '.$tujuan;
+        }
+
+        return '-';
+    }
 
     /**
      * Catatan kokurikuler siswa (default template jika belum diisi)

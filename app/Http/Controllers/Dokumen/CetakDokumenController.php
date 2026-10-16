@@ -67,6 +67,9 @@ class CetakDokumenController extends Controller
                 'riwayat_kelas_id' => $rk->riwayat_kelas_id,
                 'kokurikuler' => $rk->kokurikuler,
                 'kokurikuler_default' => $defaultRiwayat->kokurikuler,
+                'status_kenaikan_kelas' => $rk->status_kenaikan_kelas,
+                'kelas_tujuan' => $rk->kelas_tujuan,
+                'informasi_kenaikan_kelas' => $rk->informasi_kenaikan_kelas,
                 'nama' => $user->name ?? $siswa->nama,
                 'nis' => $siswa->nis,
                 'nisn' => $siswa->nisn,
@@ -105,6 +108,58 @@ class CetakDokumenController extends Controller
             'status' => 'success',
             'message' => 'Catatan kokurikuler berhasil disimpan.',
             'kokurikuler' => $rk->kokurikuler,
+        ]);
+    }
+
+    public function simpanKenaikanKelas(Request $request)
+    {
+        foreach (['status_kenaikan_kelas', 'kelas_tujuan'] as $field) {
+            $value = $request->input($field);
+            if (is_string($value)) {
+                $request->merge([$field => trim($value) === '' ? null : trim($value)]);
+            }
+        }
+
+        $data = $request->validate([
+            'riwayat_kelas_id' => 'required|exists:riwayat_kelas,riwayat_kelas_id',
+            'status_kenaikan_kelas' => 'nullable|string|in:naik,tidak_naik',
+            'kelas_tujuan' => 'nullable|required_if:status_kenaikan_kelas,naik|string|max:100',
+        ], [
+            'riwayat_kelas_id.required' => 'Riwayat kelas wajib dipilih.',
+            'riwayat_kelas_id.exists' => 'Riwayat kelas tidak ditemukan.',
+            'status_kenaikan_kelas.string' => 'Keputusan kenaikan kelas harus berupa pilihan yang valid.',
+            'status_kenaikan_kelas.in' => 'Pilih Naik, Tidak naik, atau Belum diisi.',
+            'kelas_tujuan.required_if' => 'Kelas tujuan wajib diisi saat memilih Naik.',
+            'kelas_tujuan.string' => 'Kelas tujuan harus berupa teks.',
+            'kelas_tujuan.max' => 'Kelas tujuan maksimal 100 karakter.',
+        ]);
+
+        $rk = RiwayatKelas::with('kelasAjar.tahunAjaran')->findOrFail($data['riwayat_kelas_id']);
+        $user = Auth::user();
+        if (!$user->hasRole('Bagian Akademik')
+            && !($user->hasRole('Wali Kelas') && $user->id == $rk->kelasAjar->wali_user_id)) {
+            return response()->json([
+                'status' => 'error', 'message' => 'Anda tidak memiliki akses untuk mengubah data ini.',
+            ], 403);
+        }
+        if (strtolower(trim($rk->kelasAjar->tahunAjaran?->semester ?? '')) !== 'genap') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Keputusan kenaikan kelas hanya dapat diisi pada semester Genap.',
+            ], 422);
+        }
+
+        $status = $data['status_kenaikan_kelas'] ?? null;
+        $rk->update([
+            'status_kenaikan_kelas' => $status,
+            'kelas_tujuan' => $status === 'naik' ? $data['kelas_tujuan'] : null,
+        ]);
+
+        return response()->json([
+            'status' => 'success', 'message' => 'Keputusan kenaikan kelas berhasil disimpan.',
+            'status_kenaikan_kelas' => $rk->status_kenaikan_kelas,
+            'kelas_tujuan' => $rk->kelas_tujuan,
+            'informasi_kenaikan_kelas' => $rk->informasi_kenaikan_kelas,
         ]);
     }
 

@@ -14,6 +14,7 @@
 @endsection
 
 @section('content')
+    @php($genap = strtolower(trim($kelasAjar->tahunAjaran?->semester ?? '')) === 'genap')
     <x-breadcrumb item="Dokumen" link="{{ route('dokumen.kelas') }}" active="Pilih Cetak" />
 
     <div class="card">
@@ -68,6 +69,9 @@
                                 <th>NISN</th>
                                 <th>Jenis Kelamin</th>
                                 <th>Alamat</th>
+                                @if ($genap)
+                                    <th class="kolom-kenaikan-kelas" @if (old('jenis') !== 'rapor') hidden @endif>Informasi Kenaikan Kelas</th>
+                                @endif
                             </tr>
                         </thead>
                         <tbody>
@@ -86,6 +90,15 @@
                                     <td>{{ $siswa['nisn'] }}</td>
                                     <td>{{ $siswa['jenis_kelamin'] === 'p' ? 'Perempuan' : 'Laki-laki' }}</td>
                                     <td>{{ $siswa['alamat'] }}</td>
+                                    @if ($genap)
+                                        <td class="kolom-kenaikan-kelas" @if (old('jenis') !== 'rapor') hidden @endif>
+                                            <span class="informasi-kenaikan-kelas">{{ $siswa['informasi_kenaikan_kelas'] }}</span>
+                                            <button type="button" class="btn btn-sm btn-primary edit-kenaikan-kelas"
+                                                data-riwayat-id="{{ $siswa['riwayat_kelas_id'] }}" data-nama="{{ $siswa['nama'] }}"
+                                                data-status="{{ $siswa['status_kenaikan_kelas'] }}" data-tujuan="{{ $siswa['kelas_tujuan'] }}"
+                                                aria-label="Edit kenaikan kelas {{ $siswa['nama'] }}">Edit</button>
+                                        </td>
+                                    @endif
                                 </tr>
                             @endforeach
                         </tbody>
@@ -100,6 +113,39 @@
             </form>
         </div>
     </div>
+
+    @if ($genap)
+        <div class="modal fade" id="modalKenaikanKelas" tabindex="-1" aria-labelledby="modalKenaikanKelasLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" id="formKenaikanKelas">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalKenaikanKelasLabel">Edit Kenaikan Kelas</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p id="namaKenaikanKelas"></p>
+                        <div class="mb-3">
+                            <label for="statusKenaikanKelas" class="form-label">Keputusan</label>
+                            <select id="statusKenaikanKelas" class="form-select">
+                                <option value="">Belum diisi</option>
+                                <option value="naik">Naik</option>
+                                <option value="tidak_naik">Tidak naik</option>
+                            </select>
+                        </div>
+                        <div id="kelasTujuanField" hidden>
+                            <label for="kelasTujuan" class="form-label">Kelas tujuan</label>
+                            <input id="kelasTujuan" type="text" class="form-control" maxlength="100" aria-describedby="kenaikanKelasError">
+                        </div>
+                        <div class="text-danger mt-2" id="kenaikanKelasError" role="alert"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="btnSimpanKenaikanKelas">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 
     <!-- Modal Edit Kokurikuler -->
     <div class="modal fade" id="modalKokurikuler" tabindex="-1" aria-labelledby="modalKokurikulerLabel" aria-hidden="true">
@@ -193,6 +239,9 @@
                 tanggalField.hidden = !isRapor;
                 tanggalInput.disabled = !isRapor;
                 tanggalInput.required = isRapor;
+                document.querySelectorAll('.kolom-kenaikan-kelas').forEach(cell => {
+                    cell.hidden = !isRapor;
+                });
                 if (btnEditKokurikuler) {
                     btnEditKokurikuler.style.display = (jenisSelect.value === 'rapor') ? 'inline-block' : 'none';
                 }
@@ -218,6 +267,77 @@
                     alert(message);
                 }
             }
+
+            @if ($genap)
+                const kenaikanModal = new bootstrap.Modal(document.getElementById('modalKenaikanKelas'));
+                const kenaikanForm = document.getElementById('formKenaikanKelas');
+                const kenaikanStatus = document.getElementById('statusKenaikanKelas');
+                const tujuanInput = document.getElementById('kelasTujuan');
+                const kenaikanError = document.getElementById('kenaikanKelasError');
+                const simpanKenaikan = document.getElementById('btnSimpanKenaikanKelas');
+                let kenaikanTarget = null;
+
+                function updateTujuan() {
+                    const naik = kenaikanStatus.value === 'naik';
+                    document.getElementById('kelasTujuanField').hidden = !naik;
+                    tujuanInput.required = naik;
+                    tujuanInput.disabled = !naik;
+                    tujuanInput.setCustomValidity('');
+                    kenaikanError.textContent = '';
+                }
+                kenaikanStatus.addEventListener('change', updateTujuan);
+                tujuanInput.addEventListener('input', () => tujuanInput.setCustomValidity(''));
+                document.querySelectorAll('.edit-kenaikan-kelas').forEach(button => {
+                    button.addEventListener('click', () => {
+                        kenaikanTarget = button;
+                        document.getElementById('namaKenaikanKelas').textContent = button.dataset.nama;
+                        kenaikanStatus.value = button.dataset.status || '';
+                        tujuanInput.value = button.dataset.tujuan || '';
+                        updateTujuan();
+                        kenaikanModal.show();
+                    });
+                });
+                kenaikanForm.addEventListener('submit', async event => {
+                    event.preventDefault();
+                    const button = kenaikanTarget;
+                    if (!button || simpanKenaikan.disabled) return;
+                    tujuanInput.setCustomValidity(kenaikanStatus.value === 'naik' && !tujuanInput.value.trim()
+                        ? 'Kelas tujuan wajib diisi saat memilih Naik.' : '');
+                    if (!kenaikanForm.reportValidity()) return;
+                    kenaikanError.textContent = '';
+                    simpanKenaikan.disabled = true;
+                    try {
+                        const response = await fetch("{{ route('dokumen.simpan.kenaikan-kelas') }}", {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'},
+                            body: JSON.stringify({
+                                riwayat_kelas_id: button.dataset.riwayatId,
+                                status_kenaikan_kelas: kenaikanStatus.value || null,
+                                kelas_tujuan: kenaikanStatus.value === 'naik' ? tujuanInput.value : null
+                            })
+                        });
+                        const result = await response.json();
+                        if (!response.ok || result.status !== 'success') {
+                            kenaikanError.textContent = Object.values(result.errors || {}).flat()[0]
+                                || result.message || 'Gagal menyimpan keputusan kenaikan kelas.';
+                            return;
+                        }
+                        button.dataset.status = result.status_kenaikan_kelas || '';
+                        button.dataset.tujuan = result.kelas_tujuan || '';
+                        button.parentElement.querySelector('.informasi-kenaikan-kelas').textContent = result.informasi_kenaikan_kelas;
+                        kenaikanModal.hide();
+                        const notice = document.createElement('div');
+                        notice.className = 'alert alert-success';
+                        notice.setAttribute('role', 'alert');
+                        notice.textContent = result.message;
+                        document.getElementById('ajaxAlertContainer').replaceChildren(notice);
+                    } catch (error) {
+                        kenaikanError.textContent = 'Terjadi kesalahan koneksi saat menyimpan keputusan kenaikan kelas.';
+                    } finally {
+                        simpanKenaikan.disabled = false;
+                    }
+                });
+            @endif
 
             // Modal Kokurikuler
             const modalEl = document.getElementById('modalKokurikuler');

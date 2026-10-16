@@ -31,6 +31,7 @@
         .ketidakhadiran th, .keputusan th { text-align: center; }
         .jumlah { text-align: center; }
         .keputusan-placeholder { height: 19mm; text-align: center; }
+        .keputusan-isi { overflow-wrap: break-word; }
         .tanda-tangan { margin-top: 7mm; page-break-inside: avoid; }
         .tanda-tangan td { text-align: center; vertical-align: top; overflow-wrap: break-word; }
         .ruang-ttd { height: 22mm; }
@@ -155,7 +156,11 @@
                             @if ($genap)
                                 <table class="keputusan">
                                     <tr><th>Keputusan</th></tr>
-                                    <tr><td class="keputusan-placeholder">-</td></tr>
+                                    @if ($rk->informasi_kenaikan_kelas !== '-')
+                                        <tr><td class="keputusan-isi">Berdasarkan pencapaian kompetensi pada semester ke-1 dan ke-2, peserta didik:<br>{{ $rk->informasi_kenaikan_kelas }}</td></tr>
+                                    @else
+                                        <tr><td class="keputusan-placeholder">-</td></tr>
+                                    @endif
                                 </table>
                             @endif
                         </td>
