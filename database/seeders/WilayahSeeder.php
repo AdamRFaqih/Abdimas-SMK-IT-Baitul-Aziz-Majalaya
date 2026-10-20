@@ -17,8 +17,24 @@ class WilayahSeeder extends Seeder
         // Path ke file wilayah_data.sql
         $sqlFile = database_path('sql/wilayah_data.sql');
         if (file_exists($sqlFile)) {
+            $isMysql = DB::connection()->getDriverName() === 'mysql';
+            if ($isMysql) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+            }
+
             $sql = file_get_contents($sqlFile);
+
+            // Replace fixed database name with current database name if different
+            $currentDb = DB::connection()->getDatabaseName();
+            if ($isMysql && $currentDb && $currentDb !== 'abdimas') {
+                $sql = str_replace('`abdimas`', "`{$currentDb}`", $sql);
+            }
+
             DB::unprepared($sql);
+
+            if ($isMysql) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            }
             $this->command?->info('Wilayah data imported from wilayah_data.sql');
         } else {
             $this->command?->error('wilayah_data.sql not found!');

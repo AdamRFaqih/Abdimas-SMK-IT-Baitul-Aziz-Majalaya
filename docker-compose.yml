@@ -1,0 +1,76 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: abdimas_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:80"
+    env_file:
+      - .env
+    environment:
+      # Enforce Docker container database connectivity
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      AUTO_MIGRATE: "${AUTO_MIGRATE:-true}"
+    volumes:
+      # Persistent volume for uploaded documents and assets
+      - app_storage:/var/www/html/storage/app
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - abdimas-net
+
+  db:
+    image: mysql:8.0
+    container_name: abdimas_db
+    restart: unless-stopped
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_allowed_packet=64M
+    environment:
+      MYSQL_DATABASE: "${DB_DATABASE:-abdimas}"
+      MYSQL_USER: "${DB_USERNAME:-abdimas_user}"
+      MYSQL_PASSWORD: "${DB_PASSWORD:-abdimas_secret}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-root_secret}"
+    ports:
+      - "${DB_EXTERNAL_PORT:-3306}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} > /dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - abdimas-net
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: abdimas_tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:-}"
+    depends_on:
+      - app
+    networks:
+      - abdimas-net
+    profiles:
+      - tunnel
+
+volumes:
+  db_data:
+    driver: local
+  app_storage:
+    driver: local
+
+networks:
+  abdimas-net:
+    driver: bridge
