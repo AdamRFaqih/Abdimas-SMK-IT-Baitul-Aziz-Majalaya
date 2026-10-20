@@ -187,6 +187,22 @@ case "$1" in
         docker compose exec app php artisan migrate --force
         log_success "Migrations completed."
         ;;
+    "fresh")
+        check_prerequisites
+        log_warn "Refreshing all database migrations (dropping existing tables)..."
+        if [ "$2" = "--seed" ]; then
+            docker compose exec app php artisan migrate:fresh --seed --force
+        else
+            docker compose exec app php artisan migrate:fresh --force
+        fi
+        log_success "Database refreshed successfully."
+        ;;
+    "reset")
+        check_prerequisites
+        log_warn "Resetting entire Docker stack and volumes (clean slate)..."
+        docker compose down -v
+        do_deploy "$@"
+        ;;
     "down"|"stop")
         check_prerequisites
         log_info "Stopping containers..."
