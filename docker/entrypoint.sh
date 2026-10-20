@@ -46,17 +46,30 @@ if [ ! -f /var/www/html/.env ]; then
     fi
 fi
 
+# Ensure .env has write permissions for key generation and caches
+chmod 666 /var/www/html/.env 2>/dev/null || true
+
 # Ensure application key exists
-if [ -z "$APP_KEY" ] || ! grep -q "APP_KEY=base64:" /var/www/html/.env; then
+if [ -z "$APP_KEY" ] || ! grep -q -E "^APP_KEY=base64:" /var/www/html/.env 2>/dev/null; then
     if [ -n "$APP_KEY" ]; then
-        if grep -q "^APP_KEY=" /var/www/html/.env; then
-            sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" /var/www/html/.env
-        else
-            echo "APP_KEY=${APP_KEY}" >> /var/www/html/.env
+        if [ -w /var/www/html/.env ]; then
+            if grep -q "^APP_KEY=" /var/www/html/.env; then
+                sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" /var/www/html/.env 2>/dev/null || true
+            else
+                echo "APP_KEY=${APP_KEY}" >> /var/www/html/.env 2>/dev/null || true
+            fi
         fi
     else
         echo "==> [Entrypoint] Generating application key..."
-        php artisan key:generate --force
+        NEW_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
+        export APP_KEY="$NEW_KEY"
+        if [ -w /var/www/html/.env ]; then
+            if grep -q "^APP_KEY=" /var/www/html/.env; then
+                sed -i "s|^APP_KEY=.*|APP_KEY=${NEW_KEY}|" /var/www/html/.env 2>/dev/null || true
+            else
+                echo "APP_KEY=${NEW_KEY}" >> /var/www/html/.env 2>/dev/null || true
+            fi
+        fi
     fi
 fi
 

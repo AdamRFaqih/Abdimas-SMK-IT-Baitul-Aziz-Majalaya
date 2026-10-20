@@ -73,6 +73,33 @@ setup_env() {
             sed -i 's/DB_HOST=127.0.0.1/DB_HOST=db/' .env
         fi
     fi
+
+    # Ensure APP_KEY exists before starting containers to prevent container permission issues
+    if ! grep -q -E "^APP_KEY=base64:" .env; then
+        log_info "Generating APP_KEY for .env..."
+        local NEW_KEY=""
+        if command -v openssl &> /dev/null; then
+            NEW_KEY="base64:$(openssl rand -base64 32)"
+        elif command -v php &> /dev/null; then
+            NEW_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
+        fi
+
+        if [ -n "$NEW_KEY" ]; then
+            if grep -q "^APP_KEY=" .env; then
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    sed -i '' "s|^APP_KEY=.*|APP_KEY=${NEW_KEY}|" .env
+                else
+                    sed -i "s|^APP_KEY=.*|APP_KEY=${NEW_KEY}|" .env
+                fi
+            else
+                echo "APP_KEY=${NEW_KEY}" >> .env
+            fi
+            log_success "APP_KEY created: ${NEW_KEY:0:15}..."
+        fi
+    fi
+
+    # Grant read/write permissions to .env so both host and containers can access it
+    chmod 666 .env 2>/dev/null || true
 }
 
 # Wait for DB service to be healthy
@@ -104,12 +131,6 @@ do_deploy() {
     docker compose up -d --build
 
     wait_for_db
-
-    # Ensure APP_KEY exists
-    if ! grep -q "APP_KEY=base64:" .env; then
-        log_info "Generating Laravel Application Key (APP_KEY)..."
-        docker compose exec -T app php artisan key:generate --force
-    fi
 
     log_info "Running database migrations..."
     docker compose exec -T app php artisan migrate --force
