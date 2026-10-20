@@ -16,6 +16,8 @@ services:
       DB_PORT: 3306
       AUTO_MIGRATE: "${AUTO_MIGRATE:-true}"
     volumes:
+      # Mount environment file so key:generate and configs persist
+      - ./.env:/var/www/html/.env
       # Persistent volume for uploaded documents and assets
       - app_storage:/var/www/html/storage/app
     depends_on:

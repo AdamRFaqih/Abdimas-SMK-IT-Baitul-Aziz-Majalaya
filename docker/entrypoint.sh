@@ -36,10 +36,28 @@ if [ -n "$DB_HOST" ] && [ "$DB_CONNECTION" = "mysql" ]; then
     echo "==> [Entrypoint] Database is ready!"
 fi
 
+# Ensure .env file exists inside container so artisan commands succeed
+if [ ! -f /var/www/html/.env ]; then
+    echo "==> [Entrypoint] .env file not found, creating fallback from .env.example..."
+    if [ -f /var/www/html/.env.example ]; then
+        cp /var/www/html/.env.example /var/www/html/.env
+    else
+        touch /var/www/html/.env
+    fi
+fi
+
 # Ensure application key exists
-if [ -z "$APP_KEY" ]; then
-    echo "==> [Entrypoint] Generating application key..."
-    php artisan key:generate --force
+if [ -z "$APP_KEY" ] || ! grep -q "APP_KEY=base64:" /var/www/html/.env; then
+    if [ -n "$APP_KEY" ]; then
+        if grep -q "^APP_KEY=" /var/www/html/.env; then
+            sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" /var/www/html/.env
+        else
+            echo "APP_KEY=${APP_KEY}" >> /var/www/html/.env
+        fi
+    else
+        echo "==> [Entrypoint] Generating application key..."
+        php artisan key:generate --force
+    fi
 fi
 
 # Create storage symlink
